@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { Car, Plus, X, Search } from 'lucide-react'
+import { Car, Plus, X, Search, Pencil } from 'lucide-react'
 
 function Vehiculos() {
   const [vehiculos, setVehiculos] = useState([])
@@ -10,6 +10,8 @@ function Vehiculos() {
   const [usos, setUsos] = useState([])
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
   const [busqueda, setBusqueda] = useState('')
+  const [vehiculoSeleccionado, setVehiculoSeleccionado] = useState(null)
+  const [formEditar, setFormEditar] = useState({ motor: '', id_color_fk: '' })
   const [form, setForm] = useState({
     vin: '', placa: '', modelo: '', chasis: '', serie: '', motor: '',
     asientos: '', ejes: '', cilindros: '', cc: '', toneladas: '',
@@ -50,6 +52,21 @@ function Vehiculos() {
       alert('Error al guardar el vehículo')
     }
   }
+
+  const editarVehiculo = async () => {
+  try {
+    await axios.put(`http://localhost:3000/api/vehiculos/${vehiculoSeleccionado.vin}`, {
+      ...vehiculoSeleccionado,
+      motor: formEditar.motor,
+      id_color_fk: formEditar.id_color_fk,
+    })
+    setVehiculoSeleccionado(null)
+    cargarTodo()
+  } catch (error) {
+    console.error(error)
+    alert('Error al editar el vehículo')
+  }
+}
 
   const vehiculosFiltrados = vehiculos.filter(v =>
     v.placa?.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -140,6 +157,67 @@ function Vehiculos() {
         </div>
       )}
 
+      {/* Modal editar vehículo */}
+{vehiculoSeleccionado && (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+      <div className="flex justify-between items-center mb-5">
+        <h3 className="font-bold" style={{ color: '#053F5C' }}>Editar Vehículo</h3>
+        <button onClick={() => setVehiculoSeleccionado(null)}>
+          <X size={18} className="text-gray-400 hover:text-gray-600" />
+        </button>
+      </div>
+
+      <div className="rounded-xl p-4 mb-5" style={{ backgroundColor: '#FEF7E6' }}>
+        <p className="text-xs text-gray-400 mb-1">Vehículo</p>
+        <p className="font-bold text-sm" style={{ color: '#053F5C' }}>{vehiculoSeleccionado.nombre_marca} {vehiculoSeleccionado.nombre_linea}</p>
+        <p className="text-xs text-gray-400 mt-1">Placa: <span className="font-mono">{vehiculoSeleccionado.placa}</span></p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 mb-5">
+        <div>
+          <label className="block text-sm font-medium text-gray-600 mb-1">Número de motor</label>
+          <input
+            className="border border-gray-200 rounded-xl px-3 py-2 w-full text-sm focus:outline-none focus:ring-2"
+            placeholder="Nuevo número de motor"
+            value={formEditar.motor}
+            onChange={e => setFormEditar({ ...formEditar, motor: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-600 mb-1">Color</label>
+          <select
+            className="border border-gray-200 rounded-xl px-3 py-2 w-full text-sm focus:outline-none focus:ring-2"
+            value={formEditar.id_color_fk}
+            onChange={e => setFormEditar({ ...formEditar, id_color_fk: e.target.value })}
+          >
+            <option value="">Selecciona color</option>
+            {colores.map(c => (
+              <option key={c.id_color} value={c.id_color}>{c.nombre_color}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="flex gap-3">
+        <button
+          onClick={() => setVehiculoSeleccionado(null)}
+          className="flex-1 px-4 py-2 rounded-xl text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50"
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={editarVehiculo}
+          className="flex-1 px-4 py-2 rounded-xl text-white text-sm font-medium"
+          style={{ backgroundColor: '#F7AD19' }}
+        >
+          Guardar cambios
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
       {/* Buscador */}
       <div className="relative mb-6">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -188,6 +266,7 @@ function Vehiculos() {
                   { label: 'Asientos', value: v.asientos },
                   { label: 'Cilindros', value: v.cilindros },
                   { label: 'CC', value: v.cc },
+                  { label: 'Motor', value: v.motor },
                 ].map(({ label, value }) => (
                   <div key={label} className="rounded-xl py-2 px-1" style={{ backgroundColor: '#F8FAFB' }}>
                     <p className="text-xs text-gray-400">{label}</p>
@@ -196,8 +275,19 @@ function Vehiculos() {
                 ))}
               </div>
 
-              <div className="pt-3 border-t border-gray-100">
+              <div className="pt-3 border-t border-gray-100 flex justify-between items-center">
                 <p className="text-xs text-gray-400">VIN: <span className="font-mono">{v.vin}</span></p>
+                <button
+                  onClick={() => {
+                    setVehiculoSeleccionado(v)
+                    setFormEditar({ motor: v.motor, id_color_fk: v.id_color_fk })
+                  }}
+                  className="flex items-center gap-1 text-xs font-medium hover:opacity-80 transition"
+                  style={{ color: '#F7AD19' }}
+                >
+                  <Pencil size={12} />
+                   Editar
+                </button>
               </div>
             </div>
           ))}

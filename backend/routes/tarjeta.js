@@ -14,6 +14,9 @@ router.get('/', async (req, res) => {
                 t.hora_emision,
                 t.nit_fk,
                 t.vin_fk,
+                t.activa,
+                t.motivo_desactivacion,
+                t.fecha_desactivacion,
                 p.nombres,
                 p.apellidos,
                 p.cui,
@@ -32,6 +35,7 @@ router.get('/', async (req, res) => {
             JOIN tarjeta_circulacion.color c ON v.id_color_fk = c.id_color
             JOIN tarjeta_circulacion.uso u ON v.id_uso_fk = u.id_uso
             JOIN tarjeta_circulacion.tipo_vehiculo tp ON v.id_tipo_fk = tp.id_tipo
+            ORDER BY t.no_tarjeta DESC
         `)
         res.json(resultado.rows)
     } catch (error) {
@@ -53,6 +57,7 @@ router.get('/:no_tarjeta', async (req, res) => {
                 t.hora_emision,
                 t.nit_fk,
                 t.vin_fk,
+                t.activa,
                 p.nombres,
                 p.apellidos,
                 p.cui,
@@ -85,7 +90,6 @@ router.get('/:no_tarjeta', async (req, res) => {
 router.post('/', async (req, res) => {
     try {
         const { no_tarjeta, codigo_identificador, valida_hasta, fecha_registro, fecha_emision, hora_emision, nit_fk, vin_fk } = req.body
-        console.log('Datos recibidos:', req.body)
         const resultado = await pool.query(`
             INSERT INTO tarjeta_circulacion.tarjeta_circulacion
             (no_tarjeta, codigo_identificador, valida_hasta, fecha_registro, fecha_emision, hora_emision, nit_fk, vin_fk)
@@ -114,6 +118,56 @@ router.put('/:no_tarjeta', async (req, res) => {
         }
         res.json(resultado.rows[0])
     } catch (error) {
+        res.status(500).json({ error: error.message })
+    }
+})
+
+router.patch('/:no_tarjeta/desactivar', async (req, res) => {
+    try {
+        const { no_tarjeta } = req.params
+        const { motivo } = req.body
+
+        if (!motivo) {
+            return res.status(400).json({ error: 'Debe enviar un motivo' })
+        }
+
+        const resultado = await pool.query(`
+            UPDATE tarjeta_circulacion.tarjeta_circulacion
+            SET activa = false,
+                motivo_desactivacion = $1,
+                fecha_desactivacion = NOW()
+            WHERE no_tarjeta = $2
+            RETURNING *
+        `, [motivo, no_tarjeta])
+
+        if (resultado.rows.length === 0) {
+            return res.status(404).json({ error: 'Tarjeta no encontrada' })
+        }
+
+        res.json({ message: 'Tarjeta desactivada correctamente' })
+    } catch (error) {
+        console.log('Error desactivar:', error.message)
+        res.status(500).json({ error: error.message })
+    }
+})
+
+router.patch('/:no_tarjeta/activar', async (req, res) => {
+    try {
+        const { no_tarjeta } = req.params
+        const resultado = await pool.query(`
+            UPDATE tarjeta_circulacion.tarjeta_circulacion
+            SET activa = true,
+                motivo_desactivacion = null,
+                fecha_desactivacion = null
+            WHERE no_tarjeta = $1
+            RETURNING *
+        `, [no_tarjeta])
+        if (resultado.rows.length === 0) {
+            return res.status(404).json({ error: 'Tarjeta no encontrada' })
+        }
+        res.json({ message: 'Tarjeta activada correctamente' })
+    } catch (error) {
+        console.log('Error activar:', error.message)
         res.status(500).json({ error: error.message })
     }
 })
